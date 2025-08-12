@@ -3,3 +3,4 @@ from .dieta import DietaViewSet
 from .exercicio import ExercicioViewSet
 from .ingestao_agua import IngestaoAguaViewSet
 from .refeicao import RefeicaoViewSet
+from .relatorio_progresso import RelatorioProgressoViewSet

@@ -56,3 +56,5 @@ admin.site.register(models.Dieta)
 admin.site.register(models.Exercicio)
 admin.site.register(models.IngestaoAgua)
 admin.site.register(models.Refeicao)
+admin.site.register(models.RelatorioProgresso)
+
