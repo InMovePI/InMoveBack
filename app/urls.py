@@ -9,10 +9,12 @@ from rest_framework.routers import DefaultRouter
 
 from core.views import UserViewSet
 from core.views.dieta import DietaViewSet
+from core.views.exercicio import ExercicioViewSet
 
 router = DefaultRouter()
 
 router.register(r'dietas', DietaViewSet, basename='dietas')
+router.register(r'exercicios', ExercicioViewSet, basename='exercicios')
 router.register(r'usuarios', UserViewSet, basename='usuarios')
 
 urlpatterns = [

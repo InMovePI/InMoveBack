@@ -53,3 +53,4 @@ class UserAdmin(BaseUserAdmin):
 
 admin.site.register(models.User, UserAdmin)
 admin.site.register(models.Dieta)
+admin.site.register(models.Exercicio)
