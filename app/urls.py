@@ -11,12 +11,14 @@ from core.views import UserViewSet
 from core.views.dieta import DietaViewSet
 from core.views.exercicio import ExercicioViewSet
 from core.views.ingestao_agua import IngestaoAguaViewSet
+from core.views.refeicao import RefeicaoViewSet
 
 router = DefaultRouter()
 
 router.register(r'dietas', DietaViewSet, basename='dietas')
 router.register(r'exercicios', ExercicioViewSet, basename='exercicios')
 router.register(r'ingesta-agua', IngestaoAguaViewSet, basename='ingesta-agua')
+router.register(r'refeicoes', RefeicaoViewSet, basename='refeicoes')
 router.register(r'usuarios', UserViewSet, basename='usuarios')
 
 urlpatterns = [
