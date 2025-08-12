@@ -8,9 +8,11 @@ from drf_spectacular.views import (
 from rest_framework.routers import DefaultRouter
 
 from core.views import UserViewSet
+from core.views.dieta import DietaViewSet
 
 router = DefaultRouter()
 
+router.register(r'dietas', DietaViewSet, basename='dietas')
 router.register(r'usuarios', UserViewSet, basename='usuarios')
 
 urlpatterns = [

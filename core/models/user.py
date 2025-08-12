@@ -1,6 +1,4 @@
-"""
-Database models.
-"""
+"""Arquivo padrão do django com a model User modificada conforme a modelagem"""
 
 from django.contrib.auth.models import (
     AbstractBaseUser,
@@ -19,7 +17,7 @@ class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         """Create, save and return a new user."""
         if not email:
-            raise ValueError('Users must have an email address.')
+            raise ValueError("Users must have an email address.")
 
         user = self.model(email=self.normalize_email(email), **extra_fields)
         user.set_password(password)
@@ -27,38 +25,80 @@ class UserManager(BaseUserManager):
 
         return user
 
-    def create_superuser(self, email, password):
+    def create_superuser(self, email, password, **extra_fields):
         """Create, save and return a new superuser."""
-        user = self.create_user(email, password)
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('cpf', '00000000000')
+        extra_fields.setdefault('data_nascimento', '2000-01-01')
+        extra_fields.setdefault('peso_kg', 70)
+        extra_fields.setdefault('altura_cm', 170)
+        extra_fields.setdefault('genero', 'Outro')
         user.is_staff = True
         user.is_superuser = True
+        user = self.create_user(email, password, **extra_fields)
         user.save(using=self._db)
 
         return user
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    """User model in the system."""
+    GENERO_CHOICES = [
+        ("M", "Masculino"),
+        ("F", "Feminino"),
+        ("O", "Outro"),
+    ]
+    PREFERENCIAS_CHOICES = [
+        ('vegetariano', 'Vegetariano'),
+        ('vegano', 'Vegano'),
+        ('intolerante_gluten', 'Intolerante a Glúten'),
+        ('intolerante_lactose', 'Intolerante à Lactose'),
+        ('outro', 'Outro'),
+    ]
 
-    passage_id = models.CharField(max_length=255, unique=True, verbose_name=_('passage_id'), help_text=_('Passage ID'))
-    email = models.EmailField(max_length=255, unique=True, verbose_name=_('email'), help_text=_('Email'))
-    name = models.CharField(max_length=255, blank=True, null=True, verbose_name=_('name'), help_text=_('Username'))
+    name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name=_("name"),
+        help_text=_("Username"),
+    )
+    email = models.EmailField(
+        max_length=255, unique=True, verbose_name=_("email"), help_text=_("Email")
+    )
+    data_nascimento = models.DateField()
+    cpf = models.CharField(max_length=45, unique=True)
+    genero = models.CharField(max_length=1, choices=GENERO_CHOICES)
+    altura_cm = models.PositiveIntegerField()
+    peso_kg = models.DecimalField(max_digits=5, decimal_places=2)
+    preferencias = models.CharField(max_length=45, choices=PREFERENCIAS_CHOICES, null=True, blank=True)
     is_active = models.BooleanField(
-        default=True, verbose_name=_('Usuário está ativo'), help_text=_('Indica que este usuário está ativo.')
+        default=True,
+        verbose_name=_("Usuário está ativo"),
+        help_text=_("Indica que este usuário está ativo."),
     )
     is_staff = models.BooleanField(
         default=False,
-        verbose_name=_('Usuário é da equipe'),
-        help_text=_('Indica que este usuário pode acessar o Admin.'),
+        verbose_name=_("Usuário é da equipe"),
+        help_text=_("Indica que este usuário pode acessar o Admin."),
     )
+    passage_id = models.CharField(
+        max_length=255,
+        unique=True,
+        verbose_name=_("passage_id"),
+        help_text=_("Passage ID"),
+    )
+
+    def __str__(self):
+        return f"{self.name} - {self.email}"
 
     objects = UserManager()
 
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 
     class Meta:
         """Meta options for the model."""
 
-        verbose_name = 'Usuário'
-        verbose_name_plural = 'Usuários'
+        verbose_name = "Usuário"
+        verbose_name_plural = "Usuários"
