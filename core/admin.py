@@ -57,4 +57,7 @@ admin.site.register(models.Exercicio)
 admin.site.register(models.IngestaoAgua)
 admin.site.register(models.Refeicao)
 admin.site.register(models.RelatorioProgresso)
+admin.site.register(models.Treino)
+admin.site.register(models.TreinoExercicio)
+
 

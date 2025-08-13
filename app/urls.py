@@ -13,6 +13,8 @@ from core.views.exercicio import ExercicioViewSet
 from core.views.ingestao_agua import IngestaoAguaViewSet
 from core.views.refeicao import RefeicaoViewSet
 from core.views.relatorio_progresso import RelatorioProgressoViewSet
+from core.views.treino import TreinoViewSet
+from core.views.treino_exercicio import TreinoExercicioViewSet
 
 router = DefaultRouter()
 
@@ -21,6 +23,8 @@ router.register(r'exercicios', ExercicioViewSet, basename='exercicios')
 router.register(r'ingesta-agua', IngestaoAguaViewSet, basename='ingesta-agua')
 router.register(r'refeicoes', RefeicaoViewSet, basename='refeicoes')
 router.register(r'relatorios', RelatorioProgressoViewSet, basename='relatorios')
+router.register(r'treinos', TreinoViewSet, basename='treinos')
+router.register(r'treinos-exercicios', TreinoExercicioViewSet, basename='treinos-exercicios')
 router.register(r'usuarios', UserViewSet, basename='usuarios')
 
 urlpatterns = [
