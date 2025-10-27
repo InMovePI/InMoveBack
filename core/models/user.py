@@ -25,6 +25,7 @@ class UserManager(BaseUserManager):
 
         return user
 
+    
     def create_superuser(self, email, password, **extra_fields):
         """Create, save and return a new superuser."""
         extra_fields.setdefault('is_staff', True)
@@ -33,12 +34,11 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('data_nascimento', '2000-01-01')
         extra_fields.setdefault('peso_kg', 70)
         extra_fields.setdefault('altura_cm', 170)
-        extra_fields.setdefault('genero', 'Outro')
-        user.is_staff = True
-        user.is_superuser = True
+        extra_fields.setdefault('genero', 'O')  # Mudei de 'Outro' para 'O'
+    
         user = self.create_user(email, password, **extra_fields)
         user.save(using=self._db)
-
+    
         return user
 
 
@@ -67,11 +67,16 @@ class User(AbstractBaseUser, PermissionsMixin):
         max_length=255, unique=True, verbose_name=_("email"), help_text=_("Email")
     )
     data_nascimento = models.DateField()
-    cpf = models.CharField(max_length=45, unique=True)
+    cpf = models.CharField(max_length=45, unique=True, blank=True, null=True)
     genero = models.CharField(max_length=1, choices=GENERO_CHOICES)
     altura_cm = models.PositiveIntegerField()
     peso_kg = models.DecimalField(max_digits=5, decimal_places=2)
     preferencias = models.CharField(max_length=45, choices=PREFERENCIAS_CHOICES, null=True, blank=True)
+    objetivo = models.CharField(max_length=50, blank=True, null=True)
+    meta_peso = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    dias_treino = models.CharField(max_length=255, blank=True, null=True)
+    grupo_foco = models.CharField(max_length=255, blank=True, null=True)
+    
     is_active = models.BooleanField(
         default=True,
         verbose_name=_("Usuário está ativo"),
@@ -83,11 +88,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         help_text=_("Indica que este usuário pode acessar o Admin."),
     )
     passage_id = models.CharField(
-        max_length=255,
-        unique=True,
-        verbose_name=_("passage_id"),
-        help_text=_("Passage ID"),
-    )
+    max_length=255,
+    unique=True,
+    blank=True,  # ADICIONE ISSO
+    null=True,   # ADICIONE ISSO
+    verbose_name=_("passage_id"),
+    help_text=_("Passage ID"),
+)
 
     def __str__(self):
         return f"{self.name} - {self.email}"

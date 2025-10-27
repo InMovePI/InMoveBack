@@ -12,7 +12,7 @@ cffi==1.17.1; platform_python_implementation != "PyPy"
 cfgv==3.4.0
 charset-normalizer==3.4.0
 click==8.1.7
-cloudinary==1.41.0
+cloudinary==1.44.1
 colorama==0.4.6; sys_platform == "win32" or platform_system == "Windows"
 cryptography==44.0.2
 decorator==5.2.1
