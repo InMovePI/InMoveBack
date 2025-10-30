@@ -1,0 +1,80 @@
+[
+{
+  "model": "core.user",
+  "pk": 1,
+  "fields": {
+    "password": "pbkdf2_sha256$870000$ceqmOGhszOouWWFZnkPgDq$ZdyDQRetB2JLUG+hib9UFs0UQKSjIFwBgv0NqgOdrO8=",
+    "last_login": "2025-10-27T22:10:09.732Z",
+    "is_superuser": true,
+    "name": null,
+    "email": "a@a.com",
+    "data_nascimento": "2000-01-01",
+    "cpf": "00000000000",
+    "genero": "O",
+    "altura_cm": 170,
+    "peso_kg": "70.00",
+    "preferencias": null,
+    "objetivo": null,
+    "meta_peso": null,
+    "dias_treino": null,
+    "grupo_foco": null,
+    "is_active": true,
+    "is_staff": true,
+    "passage_id": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "core.user",
+  "pk": 2,
+  "fields": {
+    "password": "isa2612",
+    "last_login": null,
+    "is_superuser": false,
+    "name": "isabelle cristina da cunha",
+    "email": "is4ccunha@gmail.com",
+    "data_nascimento": "2007-12-26",
+    "cpf": null,
+    "genero": "F",
+    "altura_cm": 166,
+    "peso_kg": "55.00",
+    "preferencias": "outro",
+    "objetivo": "emagrecimento",
+    "meta_peso": "50.00",
+    "dias_treino": "Sábado,Sexta-Feira,Quinta-Feira,Domingo",
+    "grupo_foco": "Superiores,Inferiores",
+    "is_active": true,
+    "is_staff": false,
+    "passage_id": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "core.user",
+  "pk": 3,
+  "fields": {
+    "password": "claudia32193",
+    "last_login": null,
+    "is_superuser": false,
+    "name": "Claudia de Camargo",
+    "email": "camargoclaudia142@gmail.com",
+    "data_nascimento": "1988-06-04",
+    "cpf": null,
+    "genero": "F",
+    "altura_cm": 166,
+    "peso_kg": "64.00",
+    "preferencias": "outro",
+    "objetivo": "hipertrofia",
+    "meta_peso": "58.00",
+    "dias_treino": "Segunda-Feira,Quarta-Feira,Terça-Feira,Quinta-Feira,Sexta-Feira",
+    "grupo_foco": "Inferiores,Superiores",
+    "is_active": true,
+    "is_staff": false,
+    "passage_id": null,
+    "groups": [],
+    "user_permissions": []
+  }
+}
+]
