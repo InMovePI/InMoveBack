@@ -19,6 +19,12 @@ class UserManager(BaseUserManager):
         if not email:
             raise ValueError("Users must have an email address.")
 
+        # Provide defaults for non-nullable fields so manager can be used
+        extra_fields.setdefault('data_nascimento', '2000-01-01')
+        extra_fields.setdefault('genero', 'O')
+        extra_fields.setdefault('altura_cm', 170)
+        extra_fields.setdefault('peso_kg', 70)
+
         user = self.model(email=self.normalize_email(email), **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -30,7 +36,7 @@ class UserManager(BaseUserManager):
         """Create, save and return a new superuser."""
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('cpf', '00000000000')
+        # cpf removed from model; no longer needed
         extra_fields.setdefault('data_nascimento', '2000-01-01')
         extra_fields.setdefault('peso_kg', 70)
         extra_fields.setdefault('altura_cm', 170)
@@ -48,13 +54,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         ("F", "Feminino"),
         ("O", "Outro"),
     ]
-    PREFERENCIAS_CHOICES = [
-        ('vegetariano', 'Vegetariano'),
-        ('vegano', 'Vegano'),
-        ('intolerante_gluten', 'Intolerante a Glúten'),
-        ('intolerante_lactose', 'Intolerante à Lactose'),
-        ('outro', 'Outro'),
-    ]
 
     name = models.CharField(
         max_length=255,
@@ -67,15 +66,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         max_length=255, unique=True, verbose_name=_("email"), help_text=_("Email")
     )
     data_nascimento = models.DateField()
-    cpf = models.CharField(max_length=45, unique=True, blank=True, null=True)
     genero = models.CharField(max_length=1, choices=GENERO_CHOICES)
     altura_cm = models.PositiveIntegerField()
     peso_kg = models.DecimalField(max_digits=5, decimal_places=2)
-    preferencias = models.CharField(max_length=45, choices=PREFERENCIAS_CHOICES, null=True, blank=True)
     objetivo = models.CharField(max_length=50, blank=True, null=True)
     meta_peso = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     dias_treino = models.CharField(max_length=255, blank=True, null=True)
     grupo_foco = models.CharField(max_length=255, blank=True, null=True)
+    # profile_picture field removed as per request
     
     is_active = models.BooleanField(
         default=True,

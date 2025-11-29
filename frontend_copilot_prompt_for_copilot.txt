@@ -1,0 +1,139 @@
+PROMPT PARA COPILOT (Colar no Copilot do Frontend — em Português)
+
+Contexto:
+- Este projeto usa Vue 3, Pinia e Axios. Se você prefere outra combinação (React/Redux), me avisa.
+- Backend endpoints (Django / DRF):
+  - POST /api/token/  — body: { email, password } — returns: { access, refresh }
+  - POST /api/chat/ — body: { message, session_id? } — returns: { treino, dieta, session_id } or text; backend saves messages of user and assistant and associates them with a `ChatSession` if user is authenticated
+  - GET /api/chat/history/ — requires Bearer JWT — returns list of sessions: [ { id, title, created_at, updated_at, last_message }, ... ] ordered by updated_at
+  - POST /api/chat/sessions/ — body: { title? } — creates an empty session for the user (optional)
+  - GET /api/chat/sessions/<session_id>/ — returns messages for a given session: [ { id, role, content, created_at, session }, ... ]
+- No backend, ChatMessage fields: id, user (FK), role ('user'|'assistant'), content, session_id, created_at.
+- Objetivo: Criar página de chat que:
+  - Mostre chat atual (mensagens em ordem cronológica).
+  - Exiba na lateral um histórico de conversas (sessions), parecido com o ChatGPT, permitindo criar/selecionar conversas antigas.
+  - Permita enviar mensagem; o front faz POST /api/chat/ com session_id; o backend responde e salva user/assistant nas sessions.
+  - Recuperar o histórico ao abrir a página (GET /api/chat/history/).
+  - Autenticar usando JWT: obter token em /api/token/ e armazenar no localStorage.
+  - UX: spinner ao enviar, desabilitar botão de envio enquanto aguarda, exibir erro em toast, rolar para as mensagens mais recentes.
+
+Requisitos técnicos:
+- Crie (pelo menos) estes arquivos/componentes:
+  - src/services/api.js — Axios instance (baseURL: /api/) + Authorization interceptor
+  - src/stores/authStore.js (Pinia) — token + login/logout
+  - src/stores/chatStore.js (Pinia) — sessions + messages + send/load actions
+  - pages/ChatPage.vue — layout, sidebar e chat window
+  - components/ChatWindow.vue — mensagens + composer (input + enviar)
+  - components/ChatSidebar.vue — histórico de sessions à esquerda
+  - components/MessageBubble.vue — bolhas (user & assistant)
+- Use Tailwind CSS ou classes equivalentes para layout responsivo e moderno.
+- Testes (sugestão): unit tests (Vitest/Jest) e E2E (Cypress).
+
+Comportamento detalhado - Frontend (o que deve ser implementado):
+1) Axios & auth:
+   - Configurar Axios `api` com baseURL '/api/'.
+   - Interceptor de requisição que adiciona Authorization: `Bearer <access_token>` se token presente.
+   - authStore: estado { token: null, user: null }, ações: login(email,pass), logout(), setToken(token).
+   - Guardar token em localStorage e recarregar em `authStore` se existe.
+2) Pinia chatStore:
+   - Estado:
+     - sessions: []
+     - selectedSession: id|null
+     - messages: [] (array de mensagens do chat atual)
+     - sending: boolean
+     - error: null
+   - Ações:
+     - async loadSessions(): GET /api/chat/history/ — popula sessions
+     - async createSession(title): POST /api/chat/sessions/ — cria sesssion e seleciona
+     - async loadSessionMessages(sessionId): GET /api/chat/sessions/<session_id>/ — popula messages
+     - async sendMessage(text): POST /api/chat/ — adiciona { role: 'user', content: text } localmente, set sending, call API com session_id, recebe resposta e adiciona assistant message no session; o endpoint retorna `session_id` caso seja criado agora.
+     - async refreshSessions(): re-carrega sessions (opcional)
+   - Mutations or equivalent: addMessage(), setSessions(), setSelectedSession(), setSending(), setError()
+3) ChatPage.vue (Layout - full-screen, modern, responsive):
+   - Full screen: ladsoe com top header
+   - Left: `<ChatSidebar/>`: list of sessions (history) and actions: New Conversation (createSession), show each session with last_message preview and timestamp.
+   - Right: `<ChatWindow/>`: header with session title + actions (rename/delete), messages list, composer at bottom.
+   - On mount: if logged in -> chatStore.loadSessions().
+   - If not logged in -> show CTA para login (ou guest chat usando localStorage se desejar guest persistence).
+   - When user clicks a session in Sidebar: call `loadSessionMessages(sessionId)` and display them in ChatWindow.
+   - `New Conversation` should call `createSession()` and select it; composer should clear and ready to send messages.
+4) ChatWindow.vue:
+   - Props: messages or uses `chatStore.messages` directly.
+   - Renders message list using `MessageBubble`.
+   - Composer UI: textarea/input com `v-model` e botão Send.
+   - Send behavior: empty -> no-op; Enter = send (Shift+Enter new line).
+   - While `sending`, disable input/button and show loading indicator/spinner.
+   - After receiving response from API, add assistant message, scroll to bottom; if API returns `session_id` use it.
+5) ChatSidebar.vue:
+   - Renders `chatStore.sessions` as list; shows title or snippet of `last_message` (truncate 80 chars) + `updated_at` relative time.
+   - Clicking an item loads messages via `loadSessionMessages()`.
+   - Optional actions: rename, delete (if API endpoints exist) with confirmation.
+6) MessageBubble.vue:
+   - Props: role, content, created_at
+   - Design: user messages right-aligned with an accent color; assistant left-aligned neutral color.
+   - Do not use `v-html` without sanitization; prefer plain text or sanitized HTML.
+
+Payloads e exemplos:
+- POST /api/token/ payload:
+{ "email": "user@example.com", "password": "Password123" }
+- response:
+{ "access": "...jwt.access.token...", "refresh": "...jwt.refresh..." }
+- POST /api/chat/ payload:
+{ "message": "Quero treinar para ficar mais forte", "session_id": 12 }
+- response normal:
+{ "treino": "Treino A: ...", "dieta": "Dieta A: ...", "session_id": 12 }
+- GET /api/chat/history/ response (sessions):
+[
+  { "id": 123, "title": "Treino - 01", "created_at": "2025-01-01T12:34:56Z", "updated_at": "2025-01-02T12:34:56Z", "last_message": { "role": "assistant", "content": "...", "created_at": "2025-01-02T12:34:56Z" } },
+  ...
+]
+- GET /api/chat/sessions/<session_id>/ response:
+[
+  { "id": 123, "role": "user", "content": "Quero treinar", "created_at": "2025-01-01T12:34:56Z", "session": 1 },
+  { "id": 124, "role": "assistant", "content": "{\"treino\": \"...\", \"dieta\": \"...\"}", "created_at": "2025-01-01T12:34:58Z", "session": 1 },
+]
+
+UX & comportamento:
+- Mostrar loader durante requisições.
+- Mensagens aparecem imediatamente (optimistic update) ao enviar.
+- Exibir toast/error modal se requisição falhar.
+- Rolar para a ultima mensagem após enviar/receber.
+- Se 401 => redirecionar ao login e limpar token do `authStore`.
+
+Testes:
+- Unit tests (Vitest/Jest):
+  - `chatStore.loadSessions` -> mock `api.get('chat/history/')` -> assert sessions populated.
+  - `chatStore.createSession` -> mock `api.post('chat/sessions/')` -> assert session added/selected.
+  - `chatStore.sendMessage` -> mock `api.post('chat/')` -> assert messages inserted (user & assistant).
+- Component tests (Vue Test Utils):
+  - `ChatWindow`: send message UI calls `chatStore.sendMessage`.
+  - `ChatSidebar`: clicking session triggers `loadSessionMessages`.
+- E2E (Cypress):
+  - login -> create session -> send message -> assistant response visible -> reload -> session still in list -> click -> messages restored.
+
+Design/UI (Modern & Full-screen):
+- Full-screen layout with a top header and sticky bottom composer.
+- Sidebar width ~ 280–320px on desktop; mobile drawer for sessions.
+- Rounded message bubbles, subtle shadows, accessible color contrast.
+- Composer large and friendly; Enter to send; Shift+Enter for newline.
+- Typing indicator and skeletons while waiting for response.
+
+Edge Cases & Suggestions:
+- Guest sessions: optionally allow localStorage persistence for guest sessions (no server storage for anonymous users).
+- If backend returns `assistant.content` as JSON: parse and show `treino`/`dieta` fields structured; if plain text, show as text.
+- If `api.post('chat/')` returns different session_id than selected: update selectedSession to returned session_id.
+- Add rename/delete session endpoints if needed and implement UX flows for rename & delete.
+
+Delivery Expectations:
+1) Generate the components listed above (ChatPage.vue, ChatWindow.vue, ChatSidebar.vue, MessageBubble.vue)
+2) Implement `src/services/api.js` + `src/stores/authStore.js` + `src/stores/chatStore.js`.
+3) Add basic tests for store actions and core components.
+4) Update README (short section) explaining how to run the frontend and endpoints it uses.
+
+Follow-up questions the Copilot should ask before finalizing code generation:
+- Tailwind or Bootstrap/Material? (Default: Tailwind)
+- Should guest users have localStorage-based sessions or require login for sessions?
+- Any special brand palette, fonts or icons to use?
+- Should the sidebar include session creation and rename/delete actions? (Yes/No)
+
+Obrigado! Gere o código com boas práticas, dividido em componentes, e adicione testes básicos para cada ação crítica.

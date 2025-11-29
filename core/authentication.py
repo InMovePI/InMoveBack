@@ -10,9 +10,15 @@ from rest_framework.exceptions import AuthenticationFailed
 
 from core.models import User
 
-PASSAGE_APP_ID = settings.PASSAGE_APP_ID
-PASSAGE_API_KEY = settings.PASSAGE_API_KEY
-psg = Passage(PASSAGE_APP_ID, PASSAGE_API_KEY)
+PASSAGE_APP_ID = getattr(settings, 'PASSAGE_APP_ID', None)
+PASSAGE_API_KEY = getattr(settings, 'PASSAGE_API_KEY', None)
+psg = None
+if PASSAGE_APP_ID and PASSAGE_API_KEY:
+    try:
+        psg = Passage(PASSAGE_APP_ID, PASSAGE_API_KEY)
+    except Exception:
+        # If Passage cannot be initialized, keep psg None and authentication will not use it.
+        psg = None
 
 
 class TokenAuthenticationScheme(OpenApiAuthenticationExtension):
@@ -34,6 +40,9 @@ class TokenAuthentication(authentication.BaseAuthentication):
             return None
 
         token = request.headers.get('Authorization').split()[1]
+        # If passage is not configured, we cannot authenticate via token
+        if psg is None:
+            return None
         psg_user_id: str = self._get_user_id(token)
         user: User = self._get_or_create_user(psg_user_id)
 

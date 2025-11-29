@@ -20,6 +20,15 @@ from core.views.relatorio_progresso import RelatorioProgressoViewSet
 from core.views.treino import TreinoViewSet
 from core.views.treino_exercicio import TreinoExercicioViewSet
 
+# VIEWS DO CHAT COM HUGGINGFACE
+from core.views.chat import (
+    ChatAPIView, 
+    ChatSessionListAPIView, 
+    ChatSessionDetailAPIView,
+    ChatSessionMessagesAPIView
+)
+
+
 router = DefaultRouter()
 
 router.register(r'dietas', DietaViewSet, basename='dietas')
@@ -31,8 +40,10 @@ router.register(r'treinos', TreinoViewSet, basename='treinos')
 router.register(r'treinos-exercicios', TreinoExercicioViewSet, basename='treinos-exercicios')
 router.register(r'usuarios', UserViewSet, basename='usuarios')
 
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+
     # OpenAPI 3
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path(
@@ -45,8 +56,23 @@ urlpatterns = [
         SpectacularRedocView.as_view(url_name='schema'),
         name='redoc',
     ),
+
+    # Auth JWT
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    # API
+
+    # Rotas da API
     path('api/', include(router.urls)),
+
+    # 🔥 ROTAS DO CHAT (HuggingFace)
+    path('api/chat/', ChatAPIView.as_view(), name='chat-ai'),
+    
+    # Sessões (listar todas e criar nova)
+    path('api/chat/sessions/', ChatSessionListAPIView.as_view(), name='chat-sessions'),
+    
+    # Sessão específica (GET, PATCH/PUT, DELETE)
+    path('api/chat/sessions/<int:session_id>/', ChatSessionDetailAPIView.as_view(), name='chat-session-detail'),
+    
+    # Mensagens de uma sessão
+    path('api/chat/sessions/<int:session_id>/messages/', ChatSessionMessagesAPIView.as_view(), name='chat-session-messages'),
 ]

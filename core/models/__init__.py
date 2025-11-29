@@ -6,3 +6,4 @@ from .refeicao import Refeicao
 from .relatorio_progresso import RelatorioProgresso
 from .treino import Treino
 from .treino_exercicio import TreinoExercicio
+from .chat import ChatMessage

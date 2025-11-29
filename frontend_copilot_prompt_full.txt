@@ -1,0 +1,241 @@
+PROMPT (Colar no Copilot do Frontend — em Português)
+
+Contexto:
+- Este projeto usa Vue 3, Pinia e Axios. Se você prefere outra combinação (React/Redux), me avisa.
+- Backend endpoints (Django / DRF):
+  - POST /api/token/  — body: { email, password } — returns: { access, refresh }
+  - POST /api/chat/ — body: { message, session_id? } — returns: { treino, dieta, session_id } or text; backend saves messages of user and assistant and associates them with a `ChatSession` if user is authenticated
+  - GET /api/chat/history/ — requires Bearer JWT — returns list of sessions: [ { id, title, created_at, updated_at, last_message }, ... ] ordered by updated_at
+  - GET /api/chat/sessions/<session_id>/ — returns messages for a given session: [ { id, role, content, created_at, session }, ... ]
+  - POST /api/chat/sessions/ — body: { title? } — creates an empty session for the user (optional)
+- No backend, ChatMessage fields: id, user (FK), role ('user'|'assistant'), content, created_at.
+- Objetivo: Criar página de chat que:
+  - Mostre chat atual (mensagens em ordem cronológica).
+  - Exiba na lateral um histórico de mensagens (últimas conversas/itens).
+  - Permita enviar mensagem; o front faz POST /api/chat/, o backend responde e ambas mensagens são retornadas/salvas.
+  - Recuperar o histórico ao abrir a página (GET /api/chat/history/).
+  - Autenticar usando JWT: obter token em /api/token/ e armazenar no localStorage.
+  - UX: spinner ao enviar, desabilitar botão de envio enquanto aguarda, exibir erro em toast, rolar para as mensagens mais recentes.
+
+Requisitos técnicos:
+- Crie (pelo menos) estes arquivos/componentes:
+  - src/stores/chatStore.js (Pinia)
+  - src/stores/authStore.js (Pinia) — se já não existirem, mínimo para guardar token e estado de login
+  - src/services/api.js — Axios instance (baseURL: /api/)
+  - pages/ChatPage.vue — layout, sidebar e chat window
+  - components/ChatWindow.vue — mensagens + composer (input + enviar)
+  - components/ChatSidebar.vue — histórico à esquerda
+  - components/MessageBubble.vue — bolhas (user & assistant)
+- Use Tailwind CSS ou classes equivalentes para layout responsivo.
+- Testes (sugestão): unit tests e integração com mocks (Jest + Vue Test Utils ou Cypress).
+
+Comportamento detalhado - Frontend (o que deve ser implementado):
+1) Axios & auth:
+   - Configurar Axios `api` com baseURL '/api/'.
+   - Interceptor de requisição que adiciona Authorization: `Bearer <access_token>` se token presente.
+   - authStore: estado { token: null, user: null }, ações: login(email,pass), logout(), setToken(token).
+   - Guardar token em localStorage e recarregar em `authStore` se existe.
+2) Pinia chatStore:
+   - Estado:
+     - messages: [] (array de mensagens do chat atual ou histórico)
+     - history: [] (opcional: previews para a sidebar — aqui retornamos a história completa do usuário e geramos previews)
+     - sending: boolean
+     - error: null
+   - Ações:
+     - async loadHistory(): GET /api/chat/history/ — popula history e messages (inicialmente messages = last N or entire history)
+     - async sendMessage(text): POST /api/chat/ — adiciona { role: 'user', content: text } localmente, set sending, call API, recebe resposta (treino/dieta) e adiciona { role: 'assistant', content: response }, atualiza history/messages
+     - async refresh(): opcional — re-get history
+   - Mutations or equivalent: addMessage(), setHistory(), setSending(), setError()
+3) ChatPage.vue (Layout - full-screen, modern, responsive):
+  - Layout: full screen responsive layout; two columns on desktop (wide chat area and left sidebar sessions), single column on mobile with sidebar as a collapsible drawer or top list.
+  - The chat should occupy the entire screen height minus a header (if you have one). Use a sticky composer at the bottom and a scrollable message container above it.
+  - Use modern design: larger text for messages, subtle rounded bubbles, shadows, and clear roles colors (blue/green for user/assistant). Use spacing and readable fonts. Add a top bar showing chat title and `New Conversation`, `Rename`, `Delete` actions.
+  - Left: `<ChatSidebar/>`: list of chat sessions grouped by last updated or date; each item shows a preview (last message) and timestamp. On mobile, this becomes a collapsible drawer or top list.
+   - Right: `<ChatWindow/>`: top shows header (e.g., "Chat com IA"), below the messages and a composer at bottom.
+   - On mount: if logged in -> store.loadHistory().
+   - If not logged in -> show a CTA to login (or do guest chat allowed).
+   - When user clicks a message preview in Sidebar: scroll ChatWindow to that message (or highlight).
+   - Implement "Nova conversa" button that clears messages state (does not delete history server side).
+4) ChatWindow.vue:
+   - Accepts messages as prop or use `chatStore.messages`.
+   - Renders message list using `MessageBubble` (bubble aligned right for user, left for assistant).
+   - Composer UI: textarea/input with `v-model` for the message and a send button.
+   - When send button clicked or Enter pressed:
+     - If message empty -> no-op.
+     - Trigger chatStore.sendMessage(message).
+     - Disable send while `sending` true.
+   - Show spinner or typing indicator for assistant while request pending.
+   - After receiving, scroll to bottom (smooth).
+5) ChatSidebar.vue (sessions sidebar):
+  - Renders `chatStore.sessions` (history) as list; each item shows:
+     - First/last message snippet (snippet = content truncated at 100 chars).
+     - Timestamp (e.g., created_at).
+     - Clicking item focuses the message in ChatWindow (scroll).
+  - Support `rename` (optional) and `delete` actions for a session (if you implement server endpoints later).
+6) MessageBubble.vue:
+   - Props: role, content, created_at
+   - Distinguish `user` vs `assistant` styling.
+   - Use accessible semantic markup <article> <time>.
+
+Payloads e exemplos:
+- POST /api/token/ payload:
+{ "email": "user@example.com", "password": "Password123" }
+- response:
+{ "access": "...jwt.access.token...", "refresh": "...jwt.refresh..." }
+- POST /api/chat/ payload:
+{ "message": "Quero treinar para ficar mais forte" }
+- response normal:
+{ "treino": "Treino A: ...", "dieta": "Dieta A: ..." }
+- GET /api/chat/history/ response:
+[
+  { "id": 123, "role": "user", "content": "Quero treinar", "created_at": "2025-01-01T12:34:56Z" },
+  { "id": 124, "role": "assistant", "content": "{\"treino\": \"...\", \"dieta\": \"...\"}", "created_at": "2025-01-01T12:34:58Z" },
+  ...
+]
+- Observações:
+  - A `assistant.content` pode vir em JSON ou em texto. Nossa view (backend) já tenta parsear para JSON e retornar {treino,dieta}. Se o frontend receber um string com JSON, tente parsear ou mostrar a string.
+
+UX & comportamento:
+- Mostrar loader durante requisições.
+- Mensagens aparecem imediatamente (optimistic update) (a resposta virá em alguns segundos).
+- Exibir toast/error modal se requisição falhar.
+- Rolar para a ultima mensagem após enviar/receber.
+- Respeitar autenticacao: se endpoint 401, redirecionar ao login.
+
+Testes:
+- Unit tests:
+  - chatStore.sendMessage() mock axios to return response and assert messages entries created.
+  - ChatWindow.vue - assert that when user writes and sends, `sendMessage` in store is called and UI changes.
+- E2E (Cypress):
+  - Flow: login -> load ChatPage -> send message -> assert assistant's response visible -> reload page -> assert message still in history.
+
+Dicas/pequenas implementações exemplares (copilot pode gerar):
+- `src/services/api.js` example:
+import axios from 'axios';
+import { useAuthStore } from '../stores/authStore';
+
+const api = axios.create({ baseURL: '/api/' });
+
+api.interceptors.request.use((config) => {
+  const store = useAuthStore();
+  const token = store.token || localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+export default api;
+
+- `src/stores/chatStore.js` example:
+import { defineStore } from 'pinia';
+import api from '../services/api';
+
+export const useChatStore = defineStore('chat', {
+  state: () => ({ messages: [], sessions: [], selectedSession: null, sending: false, error: null }),
+  actions: {
+    async loadHistory() {
+      try {
+        const res = await api.get('chat/history/');
+        this.sessions = res.data;
+        if (res.data.length) {
+          // use last updated session by default
+          const sessionId = res.data[0].id
+          await this.loadSessionMessages(sessionId)
+          this.selectedSession = sessionId
+        }
+      } catch(err) {
+        this.error = err;
+      }
+    },
+    async sendMessage(text) {
+      if (!text) return;
+      this.sending = true;
+      const userMessage = { role: 'user', content: text, created_at: new Date().toISOString() };
+      this.messages.push(userMessage);
+      try {
+        const res = await api.post('chat/', { message: text, session_id: this.selectedSession });
+        const answer = res.data; // {treino,dieta} or text
+        const content = typeof answer === 'string' ? answer : JSON.stringify(answer);
+        this.messages.push({ role: 'assistant', content, created_at: new Date().toISOString(), session: this.selectedSession });
+          async createSession(title = '') {
+            try {
+              const res = await api.post('chat/sessions/', { title });
+              this.sessions.unshift(res.data);
+              return res.data
+            } catch(e) {
+              this.error = e
+            }
+          },
+
+          async loadSessionMessages(sessionId) {
+            try {
+              const res = await api.get(`chat/sessions/${sessionId}/`);
+              this.messages = res.data
+              this.selectedSession = sessionId
+            } catch(e) {
+              this.error = e
+            }
+          },
+      } catch(e) {
+        this.error = e;
+      } finally {
+        this.sending = false;
+      }
+    }
+  }
+});
+
+- `pages/ChatPage.vue` (esqueleto):
+<template>
+ <div class="flex min-h-screen">
+   <div class="w-80 border-r p-4">
+     <ChatSidebar />
+   </div>
+   <div class="flex-1 p-4">
+     <ChatWindow />
+   </div>
+ </div>
+</template>
+<script setup>
+import ChatSidebar from '@/components/ChatSidebar.vue'
+import ChatWindow from '@/components/ChatWindow.vue'
+const chatStore = useChatStore()
+onMounted(() => { chatStore.loadHistory() })
+</script>
+
+Implementação sugerida de UX/UX details:
+- Para histórico lateral: agrupar por `created_at` (data) e mostrar snippet com `truncate(80)`.
+- Para conversas longas: mostrar botões de pagination/infinite scroll.
+- Forçar `content` sanitization (to avoid XSS) — use `v-html` with caution or display plain text.
+
+UI design details (modern & full-screen):
+- Full-screen layout: chat should fill the viewport height and width, with a top header bar and a sticky bottom composer.
+- The sidebar (sessions) should be a vertical column on desktop with a width of ~280px, with smooth scroll and server-synced items; on mobile it should become a full-height drawer accessible via a hamburger/menu icon.
+- Use rounded message bubbles with subtle shadows — user messages on the right (accent color), assistant messages on the left (neutral color). Ensure sufficient contrast for accessibility (WCAG AA).
+- Composer: show a large textarea with placeholder "Escreva sua mensagem..." and a prominent send button. Allow pressing Enter to send with Shift+Enter for new lines.
+- Loading/typing indicator: show a skeleton or smaller assistant bubble with animated dots when waiting for response.
+- Session actions: New Conversation (create session), Rename (inline edit title), Delete (with confirmation). Place these in a small actions menu in the top header.
+- Responsiveness: use CSS grid or flex; ensure that at <640px width the sidebar collapses and the chat area occupies full width.
+
+Observações finais para Copilot:
+- Gera código que é testável e dividido em componentes.
+- Exporta um `chatStore` com métodos `loadHistory`, `sendMessage`, `refresh`.
+- Use localStorage para persistir o JWT.
+- Use Tailwind para estilos (p.ex., `flex`, `p-4`, `bg-gray-100`).
+- Inclui testes minimalistas (Jest/Vue Test Utils or Cypress) para as ações principais.
+- Caso o backend retorne assistant content como JSON ou texto, o frontend deve:
+  1) tentar `JSON.parse` (se for string) e tratar `treino` e `dieta` separadamente,
+  2) caso contrário, exibir texto puro em bolha de assistant.
+
+Entregáveis esperados:
+1) Código completo dos componentes mencionados.
+2) Pinia store com actions/estado.
+3) Axios `api` configurado com interceptors de autenticação.
+4) Testes unitários para `chatStore.sendMessage` e componente `ChatWindow`.
+5) Documentação curta no `README.md` (como rodar, endpoints, props).
+
+Perguntas de followup (Copilot deve perguntar antes de finalizar):
+- Deseja threads/sessions ou histórico plano por mensagem?
+- Prefere persistir token em localStorage ou cookie / sessionStorage?
+- Quais requisitos de estilo (Tailwind, Bootstrap, Material)? Ou custom?
+
+Obrigado!
