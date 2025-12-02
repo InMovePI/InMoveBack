@@ -132,7 +132,7 @@ REST_FRAMEWORK = {
 }
 
 # HuggingFace
-# HF_TOKEN = ""
-HF_MODEL = "meta-llama/Llama-3.2-1B-Instruct"
+HF_TOKEN = os.getenv('HF_TOKEN')
+HF_MODEL = os.getenv('HF_MODEL', "meta-llama/Llama-3.2-1B-Instruct")
 
 print(f'{MODE = } \n{MEDIA_URL = } \n{DATABASES = }')
