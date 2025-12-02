@@ -1,0 +1,59 @@
+Resumo do trabalho realizado: Migração para base TACO local
+
+Contexto
+- Objetivo: Substituir integrações externas (OpenFoodFacts/Nutritionix) por uma base local TACO (CSV) e implementar todo o backend de refeições usando apenas dados locais.
+
+O que foi implementado
+- Modelos:
+  - core.models.fooditem.FoodItem: armazena itens do TACO (nome, porção, peso, calorias, proteína, carboidratos, gorduras, país, idiomas)
+  - core.models.meal.Meal e IngredientEntry (já existentes/ajustados para trabalhar com FoodItem)
+
+- Serviços:
+  - core.services.taco_db: serviço DB-backed para busca e cálculo de nutrientes (search_foods & get_nutrients_for_grams)
+  - core.services.nutritionix: shim/compatibilidade que delega para taco_db (preserva chamadas usadas pelas views)
+
+- Gerenciamento / utilitários:
+  - core/management/commands/import_taco.py
+    * Importa core/data/taco.csv para core_fooditem
+    * Heurísticas robustas para detectar o header (verifica palavras-chave, amostras de linhas, detecção de números)
+    * Fallback para CSV malformado (detecta linhas de dados e usa índices padrão)
+    * Suporta --update para atualizar registros existentes
+    * Novo: suporta --quiet para rodar silenciosamente (útil em CI/tests)
+  - core/management/commands/create_sample_meals.py: cria usuário de dev e algumas refeições de exemplo para facilitar testes e front-end
+
+- Admin/API/Serializers:
+  - CRUD para FoodItem via DRF (ModelViewSet) e registro no admin (IsAdminOrReadOnly)
+
+- Testes adicionados / atualizados
+  - core/tests/test_meal.py — testes para endpoints de refeições usando FoodItem no DB (list/create/delete/weekly summary)
+  - core/tests/test_import_taco.py — novos testes cobrindo:
+      * import com header normal
+      * import fallback para CSV sem header
+      * --quiet suprime saída e ainda importa
+
+Verificações / resultados
+- Migrations criadas e aplicadas: core/migrations/0011_fooditem.py
+- Testes do import_taco passaram: python manage.py test core.tests.test_import_taco → OK
+- Testes do meal passaram: python manage.py test core.tests.test_meal → OK
+
+Como usar
+- Importar TACO (com saída):
+  python manage.py import_taco --path core/data/taco.csv
+
+- Importar TACO silenciosamente (recomendado para CI):
+  python manage.py import_taco --path core/data/taco.csv --quiet
+
+- Criar amostras de refeições (dev):
+  python manage.py create_sample_meals
+
+Recomendações / próximos passos (opcionais)
+- Criar fixture JSON `sample_meals.json` para facilitar testes de integração e deploys.
+- Adicionar componentes frontend sob docs/frontend_examples (existem rascunhos; podemos finalizar se desejar).
+- Melhorar ainda mais a heurística de parsing (por exemplo, mapear dinamicamente colunas por similaridade/fuzzy matching e cobrir mais variações de TACO).
+- Tornar o import automática pós-migrate menos verbosa em CI (atualmente suportado pelo --quiet flag).
+
+Notas finais
+- Todas as alterações permaneceram localizadas no app `core` — não alteramos configurações globais.
+- Se preferir, posso gerar o fixture `sample_meals.json` agora, ou adicionar mais testes para casos extremos de CSV.
+
+Data do arquivo: 2025-12-02

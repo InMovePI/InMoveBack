@@ -63,6 +63,8 @@ urlpatterns = [
 
     # Rotas da API
     path('api/', include(router.urls)),
+    # Core app-level endpoints (meals etc.)
+    path('', include('core.urls')),
 
     # 🔥 ROTAS DO CHAT (HuggingFace)
     path('api/chat/', ChatAPIView.as_view(), name='chat-ai'),

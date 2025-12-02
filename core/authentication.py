@@ -2,7 +2,13 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from drf_spectacular.plumbing import build_bearer_security_scheme_object
-from passageidentity import Passage, PassageError
+try:  # make this import optional so management commands don't fail when not using Passage
+    from passageidentity import Passage, PassageError
+    _HAS_PASSAGE = True
+except Exception:  # pragma: no cover - environment dependent
+    Passage = None
+    PassageError = Exception
+    _HAS_PASSAGE = False
 
 # from passageidentity.openapi_client.models import UserInfo
 from rest_framework import authentication
@@ -13,7 +19,7 @@ from core.models import User
 PASSAGE_APP_ID = getattr(settings, 'PASSAGE_APP_ID', None)
 PASSAGE_API_KEY = getattr(settings, 'PASSAGE_API_KEY', None)
 psg = None
-if PASSAGE_APP_ID and PASSAGE_API_KEY:
+if _HAS_PASSAGE and PASSAGE_APP_ID and PASSAGE_API_KEY:
     try:
         psg = Passage(PASSAGE_APP_ID, PASSAGE_API_KEY)
     except Exception:

@@ -1,0 +1,113 @@
+Instruções detalhadas para o time frontend — Substituir Open Food Facts pelo backend TACO (local)
+
+Objetivo
+---------
+Substituir qualquer chamada/integração direta ao Open Food Facts (ou outras APIs externas de alimentos) no frontend pela nova API interna apoiada pela base local TACO (core.FoodItem). O comportamento e a experiência do usuário (autocompletar/pesquisa, seleção de porção, cálculo de macronutrientes por porção, criação/edição de refeições, resumo semanal, etc.) devem ser mantidos exatamente como hoje.
+
+Resumo técnico (o que já existe no backend)
+------------------------------------------------
+- Novo recurso API: /api/fooditems/ (ModelViewSet)
+  - GET /api/fooditems/?search=<query>&country=<country>&lang=<lang>
+    * Retorna lista de FoodItem (id, name, portion, weight_grams, calories, protein, carbs, fat, country, languages)
+    * Permite busca por substring (case-insensitive). Limite padrão ~10 resultados.
+
+- Serviço compatível: endpoints de Meal existentes chamam o serviço taco_db através do backend. Funções importantes que o frontend espera
+  - /meals/search-food/  (anteriormente delegava para Open Food Facts)
+    * Parametros: q=<string>, country=pt/BR por padrão, lang=pt
+    * Resposta: lista com objetos que contenham: { id, name, portion, weight_grams, calories, protein, carbs, fat, score? }
+  - /meals/ (lista e criação de refeições) — mantido
+  - /meals/<id>/ (detail/destroy) — mantido
+  - /meals/weekly-summary/ — mantido
+
+Requisitos UX / comportamento (manter igual ao uso atual com Open Food Facts)
+--------------------------------------------------------------------------
+1) Busca / Autocomplete de alimentos
+   - Ao digitar no campo 'Adicionar ingrediente' o frontend deve chamar o endpoint de busca local (preferido: /api/fooditems/?search= ou /meals/search-food/?q= ).
+   - Mostrar resultados imediatamente (debounce ~200–350ms) e exibir até ~10 resultados.
+   - Resultados devem exibir: nome, porção padrão (ex.: '100 g'), calorias por porção e macronutrientes (proteína, carboidratos, gordura).
+   - Precisão/ordenamento: manter comportamento atual — preferir items que começam com o termo, mas incluir icontains. O backend já retorna relevante ordering; frontend pode optionally rank by startswith.
+
+2) Seleção de item e ajuste de porção
+   - Quando o usuário seleciona um alimento, o front deve permitir o usuário editar a quantidade (e.g. 50g, 1 porção). Calcular dinamicamente os macros multiplicando pelos gramas/porção (usando weight_grams do FoodItem como base 100g).
+   - Se o FoodItem não tiver porção clara, assumir 100g como base; o backend já usa 100g por padrão.
+
+3) Criação/edição de refeições
+   - Criar/editar refeições via os endpoints existentes encaminhados pelo backend (sem alteração necessária na aparência da API - as chamadas mantêm os mesmos nomes). O frontend continua enviando o payload que contenha: { name, datetime, ingredients: [{ fooditem: id, grams: number, notes }] }.
+   - Validar erros do servidor e exibir feedback (400/422). O backend validará e criará IngredientEntry com vínculo para FoodItem.
+
+4) Resumo semanal
+   - Não muda — o backend já gera weekly summaries usando Meal/IngredientEntry.
+
+5) Comportamento quando não encontrar o alimento
+   - Se busca retornar vazio, frontend deve manter a UX atual: permitir "Adicionar alimento manualmente" com campos (nome, grams, kcal/proteins/carbs/fat), e então enviar via criação de meal com esses valores (o backend aceita ingredientes livres --- manter se já suportado). Se o backend não aceitar livre, marque para conversarmos — preferência: manter comportamento atual.
+
+6) Graceful degradation / offline / performance
+   - Cachear localmente (indexedDB / memory) resultados de busca por sessão para evitar chamadas repetidas.
+   - Aplicar debounce e cancelamento de requests anteriores (abort controller) para evitar race conditions.
+   - Se backend responder com erro 5xx, mostrar mensagem amigável e oferecer fallback manual.
+
+7) Internationalization
+   - Continue a enviar lang/country quando houver suporte (por padrão: pt-BR). O backend entende country/lang params.
+
+8) Tests / QA que o frontend deve cobrir
+   - Unit tests: search/autocomplete component should hit /api/fooditems/ or /meals/search-food/ and display results; verify formatting of macros.
+   - Integration / E2E: user flow add ingredient via search -> adjust grams -> save meal -> verify meal appears in list & weekly summary calculations.
+   - Edge cases: empty results, slow responses, malformed server responses, quiet-mode imports (backend--no-output shouldn't affect frontend but tests should simulate empty results).
+
+9) Example request/response (canonical)
+   - Request: GET /api/fooditems/?search=arroz&country=BR&lang=pt
+   - Response (200):
+     [{
+        "id": 123,
+        "name": "Arroz branco cozido",
+        "portion": "100 g",
+        "weight_grams": 100.0,
+        "calories": 130.0,
+        "protein": 2.4,
+        "carbs": 28.0,
+        "fat": 0.2,
+        "country": "Brasil",
+        "languages": "pt"
+     }, ...]
+
+10) Small code example (api helper) — front should use /api/fooditems/ or /meals/search-food/
+    async function searchFood(q) {
+      const params = new URLSearchParams({ search: q, country: 'BR', lang: 'pt' });
+      const r = await fetch(`/api/fooditems/?${params.toString()}`);
+      if (!r.ok) throw new Error('Erro buscando alimentos');
+      return r.json();
+    }
+
+Checklist for frontend PR
+--------------------------
+- [ ] Replace all direct calls to Open Food Facts with calls to `/api/fooditems/` or the existing `/meals/search-food/` endpoint.
+- [ ] Keep existing UI/UX behavior (autocomplete limit, display of macros, selection + portion editing) unchanged.
+- [ ] Add tests for components impacted by the change (unit + integration/E2E).
+- [ ] Add caching + debounce + abort logic for search input.
+- [ ] Ensure internationalization params (country/lang) are preserved; default to pt/BR.
+- [ ] Keep manual-add fallback in the UI when no results.
+- [ ] Update any documentation/comments, and reference `docs/frontend_examples/` where there are Vue samples.
+
+Optional improvements
+--------------------
+- Improve UI by showing a source badge ("TACO — local DB") so users know results are from local dataset.
+- Add a small tooltip documenting the per-portion base (e.g., "Valores por 100 g"), with a link to 'about' page explaining TACO.
+
+Where to look in this repo
+--------------------------
+- Backend endpoints & examples:
+  - `core/views/fooditem.py` (ModelViewSet)
+  - `core/views/meal.py` (search-food view)
+  - `core/services/taco_db.py` (search & nutrient helpers)
+  - `docs/frontend_examples/` (Vue examples — use them as starting points)
+
+Acceptance criteria for the PR
+------------------------------
+1) No direct Open Food Facts network calls remain in the frontend code.
+2) All existing meal features work exactly as before (search, select, adjust, create, edit, delete, weekly summary).
+3) Tests (unit and E2E) added or updated to cover new behavior.
+4) Frontend documentation updated (short note in README or PR description linking to `docs/frontend_examples` and this instructions file).
+
+Se precisar, eu mesmo posso abrir pequenos PRs de frontend (ex.: atualizar os exemplos em `docs/frontend_examples`) — me diga se prefere que eu faça essa transição ou se o time frontend fará a alteração.
+
+Obrigado — caso precise, adicione aqui exemplos concretos de telas/fluxos que precisam de atenção e eu sofistico o prompt para incluir passos mais detalhados.

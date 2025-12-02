@@ -1,0 +1,147 @@
+Prompt para frontend — Integração automática de logs de treino
+
+Objetivo
+--------
+Persistir automaticamente no backend os treinos concluídos por cada usuário (privado por usuário). O frontend deverá enviar os dados principais assim que o usuário finalizar um treino e também suportar reenvio/queue quando estiver offline.
+
+Endpoints (backend)
+-------------------
+- POST /workouts/log/
+  - Autenticação: JWT Bearer (Authorization: Bearer <token>) — JWT obrigatório.
+  - Body (aceita camelCase do frontend):
+    {
+      "workoutSlug": "run-5k",         // ou workoutId
+      "caloriesBurned": 300.0,          // number (>= 0)
+      "durationMinutes": 35.0,          // number (> 0)
+      "finishedAt": "2025-12-02T14:30:00Z" // opcional; backend usa now se omitido
+    }
+  - Responses:
+    - 201 Created → retorna JSON do registro salvo (id, user_id, workout_slug, calories_burned, duration_minutes, finished_at, created_at, updated_at)
+    - 400 Bad Request → payload inválido (mensagens de validação)
+    - 401 Unauthorized → token inválido / ausente
+
+- GET /workouts/logs/
+  - Autenticação: JWT Bearer
+  - Retorna: lista de logs do usuário autenticado (ordenados por finished_at desc)
+  - Responses:
+    - 200 OK + array
+    - 401 Unauthorized
+
+Requisitos UX / fluxo
+---------------------
+1) Detecção de término do treino
+   - Quando o frontend detectar que o treino foi finalizado (ex.: botão “Concluir treino” ou fluxo automático) ele deve coletar os dados e chamar POST /workouts/log/.
+
+2) Envio imediato
+   - Enquanto request pendente, mostrar feedback "Salvando treino..." ou similar.
+   - Se 201 → exibir confirmação sutil "Treino salvo".
+   - Se 401 → abrir fluxo de reautenticação / mostrar aviso para o usuário.
+   - Se 400 → exibir erros de validação recebidos do backend (campo por campo).
+
+3) Reenvio/manual / retry
+   - Em falha de rede / 5xx → implementar retry com backoff (ex.: 2 tentativas: 500ms, 1500ms).
+   - Se ainda falhar, salvar localmente (IndexedDB/localStorage) com status pendente e agendar sincronização automática quando online.
+
+4) Offline-first
+   - Se o app detecta offline: salvar log localmente e marcar status "pendente". Quando a rede retornar, tentar enviar automaticamente.
+
+5) Proteção contra duplicados
+   - Evitar reenvio acidental (bloquear botão / debounce enquanto request pendente). Use server-side dedupe se necessário (não implementado aqui, mas pode ser futuramente via unique constraints semideterminísticas).
+
+6) Privacidade e multi-tenant
+   - O backend só persiste records associados ao usuário no token. Garantir que a UI mostre apenas registros do usuário atual (GET /workouts/logs/ já filtra por user).
+
+Validações no front-end
+-----------------------
+- calorias (caloriesBurned): número, >= 0
+- duração (durationMinutes): número, > 0
+- slug: string curta, max 255, opcional (se não enviado, backend aceita string vazia)
+- finishedAt: se presente, usar ISO string válida; caso contrário não enviar (backend fornece default)
+
+Exemplo de payload e resposta
+------------------------------
+Request POST /workouts/log/
+{
+  "workoutSlug": "run-5k",
+  "caloriesBurned": 300,
+  "durationMinutes": 35,
+  "finishedAt": "2025-12-02T14:30:00Z"
+}
+
+Successful response (201):
+{
+  "id": "f3b3e0f9-...",
+  "user_id": 42,
+  "workout_slug": "run-5k",
+  "calories_burned": 300.0,
+  "duration_minutes": 35.0,
+  "finished_at": "2025-12-02T14:30:00Z",
+  "created_at": "2025-12-02T14:30:10Z",
+  "updated_at": "2025-12-02T14:30:10Z"
+}
+
+Uma implementação front-end (axios) — exemplo rápido
+--------------------------------------------------
+// src/services/api.js
+import axios from 'axios'
+
+const api = axios.create({
+  baseURL: process.env.VUE_APP_API_URL || 'http://localhost:8000/',
+  headers: { 'Content-Type': 'application/json' },
+})
+export default api
+
+// src/services/workoutService.js
+import api from './api'
+
+export async function saveWorkoutLog(payload, jwtToken) {
+  const res = await api.post('/workouts/log/', payload, {
+    headers: { Authorization: `Bearer ${jwtToken}` }
+  })
+  return res.data
+}
+
+Exemplo de integração simples (pseudo-logic no componente)
+--------------------------------------------------------
+async onFinishWorkout(stats) {
+  this.saving = true
+  try {
+    const payload = {
+      workoutSlug: stats.slug,
+      caloriesBurned: stats.calories,
+      durationMinutes: stats.duration,
+    }
+    const saved = await saveWorkoutLog(payload, this.auth.token)
+    this.saving = false
+    this.showToast('Treino salvo')
+  } catch (err) {
+    this.saving = false
+    if (!navigator.onLine) {
+      // store locally to sync later
+      queueLocalLog(payload)
+    } else {
+      // handle 400/401/5xx appropriately
+      this.showToast('Erro ao salvar treino')
+    }
+  }
+}
+
+Testes e QA
+-----------
+- Unit tests: mock `saveWorkoutLog` e assert payload e headers, comportamento 201/400/401/5xx.
+- Integration/E2E: user completa treino -> API chamada -> 201 -> histórico atualizado.
+- Edge cases: offline queue, dedupe, invalid payload responses.
+
+Critérios de aceite (PR do frontend)
+-----------------------------------
+1) Ao finalizar o treino: frontend chama `/workouts/log/` com JWT no header e payload em camelCase; backend retorna 201 e UI confirma.
+2) Se offline, o log fica salvo localmente e é sincronizado automaticamente quando online.
+3) O histórico mostra somente logs do usuário.
+4) Testes unitários e integração/E2E adicionados.
+
+Observações finais
+------------------
+- O backend já aceita camelCase do frontend e converte internamente — use `workoutSlug`, `caloriesBurned`, `durationMinutes`.
+- Posso gerar um componente Vue 3 com store + offline sync em `docs/frontend_examples/` se quiser.
+
+Arquivo criado em: docs/frontend_workoutlog_integration_prompt.txt

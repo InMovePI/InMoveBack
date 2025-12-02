@@ -59,5 +59,18 @@ admin.site.register(models.Refeicao)
 admin.site.register(models.RelatorioProgresso)
 admin.site.register(models.Treino)
 admin.site.register(models.TreinoExercicio)
+from .models.fooditem import FoodItem
+from .models.workout_log import WorkoutLog
+
+try:
+    admin.site.register(FoodItem)
+except Exception:
+    # safe on reloads/tests
+    pass
+
+try:
+    admin.site.register(WorkoutLog)
+except Exception:
+    pass
 
 
